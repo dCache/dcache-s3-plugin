@@ -1,7 +1,15 @@
 package org.dcache.test;
 
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import io.minio.MinioClient;
 import io.minio.errors.*;
@@ -9,6 +17,8 @@ import org.dcache.pool.nearline.spi.FlushRequest;
 import org.dcache.pool.nearline.spi.NearlineStorage;
 import org.dcache.pool.nearline.spi.RemoveRequest;
 import org.dcache.pool.nearline.spi.StageRequest;
+import org.dcache.util.FireAndForgetTask;
+import org.xmlpull.v1.XmlPullParserException;
 
 public class PluginNearlineStorage implements NearlineStorage
 {
@@ -16,6 +26,7 @@ public class PluginNearlineStorage implements NearlineStorage
     protected final String name;
 
     private final MinioClient minio;
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     public PluginNearlineStorage(String type, String name) {
         this.type = type;
@@ -25,11 +36,8 @@ public class PluginNearlineStorage implements NearlineStorage
             String accessKey = "";
             String secretKey = "";
             minio = new MinioClient(endpoint, accessKey, secretKey);
-        } catch (InvalidEndpointException iee) {
+        } catch (InvalidEndpointException | InvalidPortException iee) {
             System.out.println("Exception creating minio client: " + iee);
-            throw new RuntimeException("Unable to create Minio client");
-        } catch (InvalidPortException ipe) {
-            System.out.println("Exception creating minio client: " + ipe);
             throw new RuntimeException("Unable to create Minio client");
         } catch (Exception e) {
             System.out.println("Unknown error: " + e);
@@ -43,29 +51,57 @@ public class PluginNearlineStorage implements NearlineStorage
      * @param requests
      */
     @Override
-    public void flush(Iterable<FlushRequest> requests)
+    public void flush(final Iterable<FlushRequest> requests)
     {
-        System.out.println("Flush");
-        for (FlushRequest fRequest : requests
+        System.out.println("Flush triggered");
+        for (final FlushRequest fRequest : requests
              ) {
-            System.out.println("Process file " + fRequest.getReplicaUri());
-            try {
-                boolean isExist = minio.bucketExists("Plugin-Test");
-                if (isExist) {
-                    System.out.println("Bucket Plugin-Test exists already");
-                } else {
-                    System.out.println("Bucket Plugin-Test doesn't exists. Will be created now");
-                    minio.makeBucket("Plugin-Test");
+            executor.execute(new FireAndForgetTask(new Runnable() {
+                @Override
+                public void run() {
+                    String bucketName = fRequest.getFileAttributes().getStorageClass().toLowerCase()
+                            .replaceAll("[^a-z-.]", ".");
+                    String pnfsId = fRequest.getFileAttributes().getPnfsId().toString();
+                    String source = fRequest.getReplicaUri().getPath();
+                    System.out.println("Process " + pnfsId + " in bucket " + bucketName);
+//                    System.out.println("Source: " + source);
+                    fRequest.activate();
+
+                    try {
+                        boolean bucketExists = false;
+                        bucketExists = minio.bucketExists(bucketName);
+                        if (!bucketExists) {
+                            minio.makeBucket(bucketName);
+                        }
+                    } catch (InvalidBucketNameException | NoSuchAlgorithmException | InsufficientDataException |
+                            IOException | InvalidKeyException | NoResponseException | XmlPullParserException |
+                            ErrorResponseException | InternalException | InvalidResponseException |
+                            RegionConflictException e) {
+                        fRequest.failed(e);
+                        System.out.println("Creating bucket failed: " + e);
+                        return;
+                    }
+
+                    try {
+                        minio.putObject(bucketName, pnfsId, source, fRequest.getFileAttributes().getSize(),
+                                null, null, null);
+                    } catch (InvalidKeyException | InsufficientDataException | NoSuchAlgorithmException |
+                            NoResponseException | InvalidResponseException | XmlPullParserException |
+                            InvalidArgumentException | InvalidBucketNameException | ErrorResponseException |
+                            InternalException | IOException e) {
+                        fRequest.failed(e);
+                        System.out.println("Writing file to S3 tape failed: " + e);
+                        return;
+                    }
+                    try {
+                        fRequest.completed(Collections.singleton(new URI(type, name, '/' +
+                                fRequest.getFileAttributes().getPnfsId().toString(), null, null)));
+                    } catch (URISyntaxException use) {
+                        fRequest.failed(use);
+                        System.out.println("Marking Request as completed failed, caused by URI: " + use);
+                    }
                 }
-            } catch (Exception e) {
-                System.out.println("Error orccured: " + e.getClass());
-                e.printStackTrace();
-            }
-//            try {
-//                minio.putObject("Test", test, fRequest.getReplicaUri().toString());
-//            } catch (Exception e) {
-//                e.printStackTrace();
-//            }
+            }));
         }
     }
 
@@ -77,6 +113,7 @@ public class PluginNearlineStorage implements NearlineStorage
     @Override
     public void stage(Iterable<StageRequest> requests)
     {
+        System.out.println("Stage triggered");
         throw new UnsupportedOperationException("Not implemented");
     }
 
@@ -86,9 +123,32 @@ public class PluginNearlineStorage implements NearlineStorage
      * @param requests
      */
     @Override
-    public void remove(Iterable<RemoveRequest> requests)
+    public void remove(final Iterable<RemoveRequest> requests)
     {
-        throw new UnsupportedOperationException("Not implemented");
+        System.out.println("Remove triggered");
+        for (final RemoveRequest rRequest: requests
+             ) {
+            executor.execute(new Runnable() {
+                private Void empty = null;
+
+                @Override
+                public void run() {
+                    System.out.println("Remove " + rRequest.getUri().getPath().replace("/", ""));
+                    rRequest.activate();
+                    try {
+                        minio.removeObject("test.tape",
+                                rRequest.getUri().getPath().replace("/", ""));
+                        rRequest.completed(empty);
+                    } catch (InvalidKeyException | NoSuchAlgorithmException | NoResponseException |
+                            InvalidResponseException | XmlPullParserException | InvalidBucketNameException |
+                            InvalidArgumentException | InsufficientDataException | ErrorResponseException |
+                            InternalException | IOException e) {
+                        rRequest.failed(e);
+                        System.out.println("Removing file failed: "+ e);
+                    }
+                }
+            });
+        }
     }
 
     /**
@@ -106,7 +166,7 @@ public class PluginNearlineStorage implements NearlineStorage
     @Override
     public void cancel(UUID uuid)
     {
-
+        System.out.println("Cancel triggered");
     }
 
     /**
@@ -118,7 +178,7 @@ public class PluginNearlineStorage implements NearlineStorage
     @Override
     public void configure(Map<String, String> properties) throws IllegalArgumentException
     {
-
+        System.out.println("Configure triggered");
     }
 
     /**
@@ -131,6 +191,6 @@ public class PluginNearlineStorage implements NearlineStorage
     @Override
     public void shutdown()
     {
-
+        System.out.println("Shutdown triggered");
     }
 }
