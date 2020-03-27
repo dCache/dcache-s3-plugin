@@ -68,7 +68,10 @@ public class PluginNearlineStorage implements NearlineStorage
                                 null, null, null);
                         fRequest.completed(Collections.singleton(new URI(type, name, '/' +
                                 fRequest.getFileAttributes().getPnfsId().toString(), null, null)));
-                    } catch (InvalidBucketNameException | NoSuchAlgorithmException | InsufficientDataException | IOException | InvalidKeyException | NoResponseException | XmlPullParserException | ErrorResponseException | InternalException | InvalidResponseException | RegionConflictException | InvalidArgumentException | URISyntaxException e) {
+                    } catch (InvalidBucketNameException | NoSuchAlgorithmException | InsufficientDataException |
+                            IOException | InvalidKeyException | NoResponseException | XmlPullParserException |
+                            ErrorResponseException | InternalException | InvalidResponseException |
+                            RegionConflictException | InvalidArgumentException | URISyntaxException e) {
                         fRequest.failed(e);
                         System.out.println("Flush " + pnfsId + " failed, error: " + e);
                         return null;
