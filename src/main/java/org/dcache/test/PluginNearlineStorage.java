@@ -231,5 +231,6 @@ public class PluginNearlineStorage implements NearlineStorage
     public void shutdown()
     {
         System.out.println("Shutdown triggered");
+        executor.shutdown();
     }
 }
