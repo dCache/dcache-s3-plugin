@@ -67,7 +67,7 @@ public class PluginNearlineStorage implements NearlineStorage
                         minio.putObject(bucketName, pnfsId, source, fRequest.getFileAttributes().getSize(),
                                 null, null, null);
                         fRequest.completed(Collections.singleton(new URI(type, name, '/' +
-                                fRequest.getFileAttributes().getPnfsId().toString(), null, null)));
+                                fRequest.getFileAttributes().getPnfsId().toString(), null, bucketName)));
                     } catch (InvalidBucketNameException | NoSuchAlgorithmException | InsufficientDataException |
                             IOException | InvalidKeyException | NoResponseException | XmlPullParserException |
                             ErrorResponseException | InternalException | InvalidResponseException |
@@ -144,9 +144,10 @@ public class PluginNearlineStorage implements NearlineStorage
                 @Override
                 public UUID call() {
                     System.out.println("Remove " + rRequest.getUri().getPath().replace("/", ""));
+                    String bucketName = rRequest.getUri().getFragment();
                     rRequest.activate();
                     try {
-                        minio.removeObject("test.tape",
+                        minio.removeObject(bucketName,
                                 rRequest.getUri().getPath().replace("/", ""));
                         rRequest.completed(null);
                         return rRequest.getId();
