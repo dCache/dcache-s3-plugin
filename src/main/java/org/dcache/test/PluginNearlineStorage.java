@@ -31,7 +31,7 @@ public class PluginNearlineStorage implements NearlineStorage
 
     private MinioClient minio;
     private final ExecutorService executor = Executors.newFixedThreadPool(3);
-    private List<FutureTask> taskList = new ArrayList<FutureTask>();
+    private List<FutureTask<UUID>> taskList = new ArrayList<>();
 
     public PluginNearlineStorage(String type, String name) {
         this.type = type;
@@ -46,13 +46,11 @@ public class PluginNearlineStorage implements NearlineStorage
     @Override
     public void flush(final Iterable<FlushRequest> requests)
     {
-        System.out.println("Flush triggered");
-
         for (FlushRequest fRequest: requests) {
             FutureTask<UUID> flushTask = new FutureTask<UUID>(new Callable() {
                 @Override
                 public UUID call() {
-                    System.out.println("Flush file " + fRequest.getReplicaUri().getPath() + " -- " + fRequest.getId());
+                    System.out.println("Flush file " + fRequest.getReplicaUri().getPath());
 
                     String bucketName = fRequest.getFileAttributes().getStorageClass().toLowerCase()
                             .replaceAll("[^a-z-.]", ".");
@@ -72,7 +70,7 @@ public class PluginNearlineStorage implements NearlineStorage
                                 fRequest.getFileAttributes().getPnfsId().toString(), null, null)));
                     } catch (InvalidBucketNameException | NoSuchAlgorithmException | InsufficientDataException | IOException | InvalidKeyException | NoResponseException | XmlPullParserException | ErrorResponseException | InternalException | InvalidResponseException | RegionConflictException | InvalidArgumentException | URISyntaxException e) {
                         fRequest.failed(e);
-                        System.out.println("Flush " + pnfsId + " failed, error with bucket exists and creation: " + e);
+                        System.out.println("Flush " + pnfsId + " failed, error: " + e);
                         return null;
                     }
                     return fRequest.getId();
@@ -92,8 +90,6 @@ public class PluginNearlineStorage implements NearlineStorage
     @Override
     public void stage(Iterable<StageRequest> requests)
     {
-        System.out.println("Stage triggered");
-
         for (final StageRequest sRequest : requests
              ) {
             FutureTask<UUID> stageTask = new FutureTask<UUID>(new Callable() {
@@ -111,7 +107,7 @@ public class PluginNearlineStorage implements NearlineStorage
                         InputStream content = minio.getObject(bucketName, objectName);
                         File target = new File(destination);
                         FileUtils.copyInputStreamToFile(content, target);
-                        System.out.println("File erstellt: " + destination);
+                        System.out.println("Stage file " + destination + " done");
                         sRequest.completed(sRequest.getFileAttributes().getChecksumsIfPresent().isPresent() ?
                                 sRequest.getFileAttributes().getChecksums() : null);
                     } catch (InvalidKeyException | NoSuchAlgorithmException | NoResponseException |
@@ -138,8 +134,6 @@ public class PluginNearlineStorage implements NearlineStorage
     @Override
     public void remove(final Iterable<RemoveRequest> requests)
     {
-        System.out.println("Remove triggered");
-
         for (RemoveRequest rRequest: requests
              ) {
 
@@ -183,7 +177,6 @@ public class PluginNearlineStorage implements NearlineStorage
     @Override
     public void cancel(UUID uuid)
     {
-        System.out.println("Cancel triggered for " + uuid.toString());
         for (FutureTask ft: taskList
              ) {
             String fileId = null;
@@ -208,7 +201,6 @@ public class PluginNearlineStorage implements NearlineStorage
     @Override
     public void configure(Map<String, String> properties) throws IllegalArgumentException
     {
-        System.out.println("Configure triggered");
         endpoint = properties.getOrDefault("endpoint", "");
         accessKey = properties.getOrDefault("access_key", "");
         secretKey = properties.getOrDefault("secret_key", "");
