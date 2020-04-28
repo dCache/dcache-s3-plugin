@@ -1,3 +1,4 @@
 target
 .idea
-src/main/defaults/org.dcache.test.test-s3-plugin.properties
+src/main/resources/org.dcache.test.test-s3-plugin.properties
+*.iml

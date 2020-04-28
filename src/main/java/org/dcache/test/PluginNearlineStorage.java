@@ -1,16 +1,5 @@
 package org.dcache.test;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.util.*;
-import java.util.List;
-import java.util.concurrent.*;
-
 import io.minio.MinioClient;
 import io.minio.errors.*;
 import org.apache.commons.io.FileUtils;
@@ -19,6 +8,16 @@ import org.dcache.pool.nearline.spi.NearlineStorage;
 import org.dcache.pool.nearline.spi.RemoveRequest;
 import org.dcache.pool.nearline.spi.StageRequest;
 import org.xmlpull.v1.XmlPullParserException;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.util.*;
+import java.util.concurrent.*;
 
 public class PluginNearlineStorage implements NearlineStorage
 {
@@ -31,7 +30,7 @@ public class PluginNearlineStorage implements NearlineStorage
 
     private MinioClient minio;
     private final ExecutorService executor = Executors.newFixedThreadPool(3);
-    private List<FutureTask<UUID>> taskList = new ArrayList<>();
+    private final List<FutureTask<UUID>> taskList = new ArrayList<>();
 
     public PluginNearlineStorage(String type, String name) {
         this.type = type;
@@ -203,22 +202,47 @@ public class PluginNearlineStorage implements NearlineStorage
      * @throws IllegalArgumentException if the configuration is invalid
      */
     @Override
-    public void configure(Map<String, String> properties) throws IllegalArgumentException
-    {
+    public void configure(Map<String, String> properties) throws IllegalArgumentException {
+        // Get values from properties. If empty, load .properties-file
         endpoint = properties.getOrDefault("endpoint", "");
         accessKey = properties.getOrDefault("access_key", "");
         secretKey = properties.getOrDefault("secret_key", "");
 
-        try {
-            minio = new MinioClient(endpoint, accessKey, secretKey);
-        } catch (InvalidEndpointException | InvalidPortException iee) {
-            System.out.println("Exception creating minio client: " + iee);
-            throw new RuntimeException("Unable to create Minio client");
-        } catch (Exception e) {
-            System.out.println("Unknown error: " + e);
-            throw new RuntimeException("Unable to create Minio client");
-        }
+        if (endpoint.equals("") || accessKey.equals("") || secretKey.equals("")) {
+            InputStream inputStream;
 
+            Properties defaultProperties = new Properties();
+            String propertiesFilename = "org.dcache.test.test-s3-plugin.properties";
+            inputStream = getClass().getClassLoader().getResourceAsStream(propertiesFilename);
+
+            try {
+
+                if (inputStream != null) {
+                    defaultProperties.load(inputStream);
+                    inputStream.close();
+                } else {
+                    System.out.println("inputStream is null");
+                    return;
+                }
+            } catch (java.io.IOException ioe) {
+                ioe.printStackTrace();
+                return;
+            }
+            endpoint = defaultProperties.getProperty("endpoint");
+            accessKey = defaultProperties.getProperty("access_key");
+            secretKey = defaultProperties.getProperty("secret_key");
+
+            try {
+                minio = new MinioClient(endpoint, accessKey, secretKey);
+            } catch (InvalidEndpointException | InvalidPortException iee) {
+                System.out.println("Exception creating minio client: " + iee);
+                throw new RuntimeException("Unable to create Minio client");
+            } catch (Exception e) {
+                System.out.println("Unknown error: " + e);
+                throw new RuntimeException("Unable to create Minio client");
+            }
+
+        }
     }
 
     /**
