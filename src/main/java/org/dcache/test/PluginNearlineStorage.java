@@ -9,9 +9,7 @@ import org.dcache.pool.nearline.spi.RemoveRequest;
 import org.dcache.pool.nearline.spi.StageRequest;
 import org.xmlpull.v1.XmlPullParserException;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.InvalidKeyException;
@@ -203,45 +201,43 @@ public class PluginNearlineStorage implements NearlineStorage
      */
     @Override
     public void configure(Map<String, String> properties) throws IllegalArgumentException {
-        // Get values from properties. If empty, load .properties-file
         endpoint = properties.getOrDefault("endpoint", "");
         accessKey = properties.getOrDefault("access_key", "");
         secretKey = properties.getOrDefault("secret_key", "");
 
         if (endpoint.equals("") || accessKey.equals("") || secretKey.equals("")) {
-            InputStream inputStream;
+            String propertyPath = properties.getOrDefault("conf_file", "");
+            if (propertyPath.equals("")) {
+                throw new RuntimeException("No access details given");
+            } else {
+                try {
+                    InputStream inputStream = new FileInputStream(propertyPath);
 
-            Properties defaultProperties = new Properties();
-            String propertiesFilename = "org.dcache.test.test-s3-plugin.properties";
-            inputStream = getClass().getClassLoader().getResourceAsStream(propertiesFilename);
+                    Properties prop = new Properties();
+                    try {
+                        prop.load(inputStream);
+                    } catch (IOException ioe) {
+                        throw new RuntimeException(ioe);
+                    }
 
-            try {
+                    endpoint = prop.getProperty("endpoint");
+                    accessKey = prop.getProperty("access_key");
+                    secretKey = prop.getProperty("secret_key");
 
-                if (inputStream != null) {
-                    defaultProperties.load(inputStream);
-                    inputStream.close();
-                } else {
-                    System.out.println("inputStream is null");
-                    return;
+                } catch (FileNotFoundException fnfe) {
+                    throw new RuntimeException("Configuration file not found");
                 }
-            } catch (java.io.IOException ioe) {
-                ioe.printStackTrace();
-                return;
             }
-            endpoint = defaultProperties.getProperty("endpoint");
-            accessKey = defaultProperties.getProperty("access_key");
-            secretKey = defaultProperties.getProperty("secret_key");
+        }
 
-            try {
-                minio = new MinioClient(endpoint, accessKey, secretKey);
-            } catch (InvalidEndpointException | InvalidPortException iee) {
-                System.out.println("Exception creating minio client: " + iee);
-                throw new RuntimeException("Unable to create Minio client");
-            } catch (Exception e) {
-                System.out.println("Unknown error: " + e);
-                throw new RuntimeException("Unable to create Minio client");
-            }
-
+        try {
+            minio = new MinioClient(endpoint, accessKey, secretKey);
+        } catch (InvalidEndpointException | InvalidPortException iee) {
+            System.out.println("Exception creating minio client: " + iee);
+            throw new RuntimeException("Unable to create Minio client");
+        } catch (Exception e) {
+            System.out.println("Unknown error: " + e);
+            throw new RuntimeException("Unable to create Minio client");
         }
     }
 
