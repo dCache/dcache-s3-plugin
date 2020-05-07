@@ -1,6 +1,4 @@
-package org.dcache.test;
-
-import java.util.Properties;
+package org.dcache.nearline;
 
 import org.dcache.pool.nearline.spi.NearlineStorage;
 import org.dcache.pool.nearline.spi.NearlineStorageProvider;
@@ -10,13 +8,13 @@ public class PluginNearlineStorageProvider implements NearlineStorageProvider
     @Override
     public String getName()
     {
-        return "org.dcache.test.test-s3-plugin";
+        return "org.dcache.nearline-s3";
     }
 
     @Override
     public String getDescription()
     {
-        return "A test plugin for use with S3";
+        return "Enables communication to an S3-endpoint";
     }
 
     @Override

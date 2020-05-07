@@ -1,4 +1,4 @@
-package org.dcache.test;
+package org.dcache.nearline;
 
 import io.minio.MinioClient;
 import io.minio.errors.*;

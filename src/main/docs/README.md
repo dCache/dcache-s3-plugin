@@ -19,5 +19,5 @@ The plugin should be listed.
 
 To activate the plugin, create an HSM instance using:
 
-    hsm create osm name org.dcache.test.test-s3-plugin [-key=value]...
+    hsm create osm name org.dcache.nearline.test-s3-plugin [-key=value]...
 
