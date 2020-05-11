@@ -1,32 +1,36 @@
-Nearline Storage Plugin for dCache
+S3 Nearline Storage Plugin for dCache
 ==================================
 
-This is nearline storage plugin for dCache.
-
-To compile the plugin, run:
-
-    mvn package
-
-This produces a tarball in the `target` directory containing the plugin.
+This plugin enables dCache to flush, stage and remove
+files to and from an S3-endpoint.
 
 Using the plugin with dCache
 ----------------------------
 
-To use this plugin with dCache, place the directory containing this
-file in /usr/local/share/dcache/plugins/ on a dCache pool. Restart
-the pool to load the plugin.
+To use this plugin with dCache, unzip the .tar.gz-file to */usr/local/share/dcache/plugins/*
+on a dCache pool. Restart the pool to load the plugin.
 
 To verify that the plugin is loaded, navigate to the pool in the dCache admin
 shell and issue the command:
 
     hsm show providers
 
-The plugin should be listed.
+The plugin should be listed as `org.dcache.nearline-s3`
 
-To activate the plugin, create an HSM instance using:
+To activate the plugin, create an HSM instance and pass the endpoint, access- and
+secret-key with it. There are two ways to do this:
 
-    hsm create osm name org.dcache.nearline.test-s3-plugin [-key=value]...
+Pass the information as key-value-pair while creating the plugin, like this:
 
-Make sure to provide your endpoint, access- and private-key to the plugin as
-the creation will fail otherwise. You can do this by providing the key-value-pairs
-to the comment listed above or using the .properties-file in directory defaults.
+    hsm create osm <name> org.dcache.nearline-s3 -endpoint=<endpoint-url> -access_key=<access-key> -secret_key=<secret-key>
+
+Or create a .properties-file, which contains the information, and pass the location
+to the HSM instance:
+
+    hsm create osm <name> org.dcache.nearline-s3 -conf_file=<path-to-.properties-file>
+
+The .properties-file has to contain the following information:
+
+    endpoint=<endpoint-url>
+    access_key=<access-key>
+    secret_key=<secret-key>
