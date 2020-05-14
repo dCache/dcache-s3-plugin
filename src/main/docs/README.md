@@ -11,7 +11,7 @@ To build this plugin, `git` and `maven` are needed. Please install this
 programs first if they're not already present.
 
 Next, the sourcecode has to be downloaded using
-`git clone https://github.com/dCache/dcache-hsm-plugin`. This creates a
+`git clone https://github.com/dCache/dcache-s3-plugin.git`. This creates a
 folder, called *dcache-hsm-plugin*, where the sourcecode can be found.
 To turn this sourcecode into a working plugin, it has to be built with the
 help of Maven. `mvn clean package` compiles the code and packs it to a
