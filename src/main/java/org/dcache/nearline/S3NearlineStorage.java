@@ -7,6 +7,8 @@ import org.dcache.pool.nearline.spi.FlushRequest;
 import org.dcache.pool.nearline.spi.NearlineStorage;
 import org.dcache.pool.nearline.spi.RemoveRequest;
 import org.dcache.pool.nearline.spi.StageRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.*;
@@ -19,6 +21,8 @@ import java.util.concurrent.*;
 
 public class S3NearlineStorage implements NearlineStorage
 {
+    private static final Logger _log = LoggerFactory.getLogger(S3NearlineStorage.class);
+
     protected final String type;
     protected final String name;
 
@@ -47,7 +51,7 @@ public class S3NearlineStorage implements NearlineStorage
             FutureTask<UUID> flushTask = new FutureTask<UUID>(new Callable() {
                 @Override
                 public UUID call() {
-                    System.out.println("Flush file " + fRequest.getReplicaUri().getPath());
+                    _log.info("Flush file " + fRequest.getReplicaUri().getPath());
 
                     String bucketName = fRequest.getFileAttributes().getStorageClass().toLowerCase()
                             .replaceAll("[^a-z-.]", ".");
@@ -70,7 +74,7 @@ public class S3NearlineStorage implements NearlineStorage
                             ErrorResponseException | InternalException | InvalidResponseException |
                             RegionConflictException | InvalidArgumentException | URISyntaxException e) {
                         fRequest.failed(e);
-                        System.out.println("Flush " + pnfsId + " failed, error: " + e);
+                        _log.error("Flush file " + pnfsId + " failed: " + e);
                         return null;
                     }
                     return fRequest.getId();
@@ -95,6 +99,7 @@ public class S3NearlineStorage implements NearlineStorage
             FutureTask<UUID> stageTask = new FutureTask<UUID>(new Callable() {
                 @Override
                 public UUID call() {
+                    _log.info("Stage file " + sRequest.getReplicaUri());
                     sRequest.activate();
                     sRequest.allocate();
 
@@ -107,7 +112,6 @@ public class S3NearlineStorage implements NearlineStorage
                         InputStream content = minio.getObject(bucketName, objectName);
                         File target = new File(destination);
                         FileUtils.copyInputStreamToFile(content, target);
-                        System.out.println("Stage file " + destination + " done");
                         sRequest.completed(sRequest.getFileAttributes().getChecksumsIfPresent().isPresent() ?
                                 sRequest.getFileAttributes().getChecksums() : null);
                     } catch (InvalidKeyException | NoSuchAlgorithmException | NoResponseException |
@@ -115,7 +119,7 @@ public class S3NearlineStorage implements NearlineStorage
                             InvalidArgumentException | InsufficientDataException | ErrorResponseException |
                             InternalException | IOException e) {
                         sRequest.failed(e);
-                        System.out.println("Stage request failed: " + e);
+                        _log.error("Stage file " + destination + " failed: " + e);
                         return null;
                     }
                     return sRequest.getId();
@@ -140,7 +144,7 @@ public class S3NearlineStorage implements NearlineStorage
             FutureTask<UUID> removeTask = new FutureTask<UUID>(new Callable() {
                 @Override
                 public UUID call() {
-                    System.out.println("Remove " + rRequest.getUri().getPath().replace("/", ""));
+                    _log.info("Removing file " + rRequest.getUri().getPath().replace("/", ""));
                     String bucketName = rRequest.getUri().getFragment();
                     rRequest.activate();
                     try {
@@ -153,7 +157,8 @@ public class S3NearlineStorage implements NearlineStorage
                             InvalidArgumentException | InsufficientDataException | ErrorResponseException |
                             InternalException | IOException e) {
                         rRequest.failed(e);
-                        System.out.println("Removing file failed: "+ e);
+                        _log.error("Removing file " + rRequest.getUri().getPath()
+                                .replace("/", "") + " failed: " + e);
                         return null;
                     }
                 }
@@ -187,7 +192,7 @@ public class S3NearlineStorage implements NearlineStorage
                 e.printStackTrace();
             }
             if (uuid.toString().equals(fileId)) {
-                System.out.println("Cancel Task with uuid " + uuid);
+                _log.info("Cancelling Task with uuid " + uuid);
                 ft.cancel(true);
             }
         }
@@ -233,10 +238,10 @@ public class S3NearlineStorage implements NearlineStorage
         try {
             minio = new MinioClient(endpoint, accessKey, secretKey);
         } catch (InvalidEndpointException | InvalidPortException iee) {
-            System.out.println("Exception creating minio client: " + iee);
+            _log.error("Exception creating minio client: " + iee);
             throw new RuntimeException("Unable to create Minio client");
         } catch (Exception e) {
-            System.out.println("Unknown error: " + e);
+            _log.error("Unknown error: " + e);
             throw new RuntimeException("Unable to create Minio client");
         }
     }
@@ -251,7 +256,7 @@ public class S3NearlineStorage implements NearlineStorage
     @Override
     public void shutdown()
     {
-        System.out.println("Shutdown triggered");
+        _log.debug("Shutdown triggered");
         executor.shutdown();
     }
 }
