@@ -21,7 +21,7 @@ needed for the next step.
 Using the plugin with dCache
 ----------------------------
 
-To use this plugin with dCache, unzip the .tar.gz-file to
+To use this plugin with dCache, extract the .tar.gz-file to
 */usr/local/share/dcache/plugins/* on a dCache pool. Restart
 the pool to load the plugin.
 
