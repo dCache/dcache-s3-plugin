@@ -3,7 +3,7 @@ package org.dcache.nearline;
 import org.dcache.pool.nearline.spi.NearlineStorage;
 import org.dcache.pool.nearline.spi.NearlineStorageProvider;
 
-public class PluginNearlineStorageProvider implements NearlineStorageProvider
+public class S3NearlineStorageProvider implements NearlineStorageProvider
 {
     @Override
     public String getName()
@@ -20,6 +20,6 @@ public class PluginNearlineStorageProvider implements NearlineStorageProvider
     @Override
     public NearlineStorage createNearlineStorage(String type, String name)
     {
-        return new PluginNearlineStorage(type, name);
+        return new S3NearlineStorage(type, name);
     }
 }

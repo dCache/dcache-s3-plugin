@@ -17,7 +17,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.*;
 import java.util.concurrent.*;
 
-public class PluginNearlineStorage implements NearlineStorage
+public class S3NearlineStorage implements NearlineStorage
 {
     protected final String type;
     protected final String name;
@@ -30,7 +30,7 @@ public class PluginNearlineStorage implements NearlineStorage
     private final ExecutorService executor = Executors.newFixedThreadPool(3);
     private final List<FutureTask<UUID>> taskList = new ArrayList<>();
 
-    public PluginNearlineStorage(String type, String name) {
+    public S3NearlineStorage(String type, String name) {
         this.type = type;
         this.name = name;
     }
