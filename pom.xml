@@ -11,7 +11,7 @@
     <name>A test plugin for use with S3</name>
 
     <properties>
-        <version.dcache>6.0.11</version.dcache>
+        <version.dcache>7.2.2</version.dcache>
     </properties>
 
     <licenses>
